@@ -37,23 +37,24 @@ document.addEventListener("DOMContentLoaded", () => {
     type Line = Point[];
     // This array will store all the lines the user draws.
     let lines: Line[] = [];
+    // A stack to store undone lines for the redo function
+    let redoStack: Line[] = [];
 
     // State variable
     let isDrawing = false;
 
     const dispatchDrawingChanged = () => {
-      console.log("Dispatching 'drawing-changed' event.");
       const event = new CustomEvent("drawing-changed");
       canvas.dispatchEvent(event);
     };
 
-    // When the mouse is pressed down, start a new line in our data array.
+    // When starting a new line, clear the redo stack
     canvas.addEventListener("mousedown", (e: MouseEvent) => {
       isDrawing = true;
-      // Create a new line array for the new stroke
+      // Any new drawing action clears the redo history.
+      redoStack = [];
       const newLine: Line = [{ x: e.offsetX, y: e.offsetY }];
       lines.push(newLine);
-      console.log("Mouse Down: Started a new line. Total lines:", lines.length);
       dispatchDrawingChanged();
     });
 
@@ -73,7 +74,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // When the mouse is released, stops drawing.
     canvas.addEventListener("mouseup", () => {
       if (isDrawing) {
-        console.log("Mouse Up: Finished drawing line.");
         isDrawing = false;
       }
     });
@@ -81,18 +81,12 @@ document.addEventListener("DOMContentLoaded", () => {
     // When the mouse leaves the canvas, stops drawing.
     canvas.addEventListener("mouseout", () => {
       if (isDrawing) {
-        console.log("Mouse out of bounds: Paused drawing line.");
         isDrawing = false;
       }
     });
 
     // Observer that redraws the canvas when the data changes
     canvas.addEventListener("drawing-changed", () => {
-      console.log(
-        `Event received: Redrawing canvas with ${lines.length} line(s).`,
-      );
-      console.log("Current data:", JSON.parse(JSON.stringify(lines)));
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       ctx.strokeStyle = "#000000";
@@ -121,21 +115,66 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Changed the clear button which now clears data and dispatches an event
+    // Creates a container to hold all the buttons together
+    const buttonContainer = document.createElement("div");
+    buttonContainer.style.display = "flex";
+    buttonContainer.style.justifyContent = "center";
+    buttonContainer.style.gap = "10px";
+    buttonContainer.style.marginTop = "10px";
+
+    // Undo Button
+    const undoButton = document.createElement("button");
+    undoButton.textContent = "Undo";
+    undoButton.style.padding = "10px 20px";
+    undoButton.style.fontSize = "16px";
+    undoButton.style.cursor = "pointer";
+
+    undoButton.addEventListener("click", () => {
+      if (lines.length > 0) {
+        const undoneLine = lines.pop();
+        if (undoneLine) {
+          redoStack.push(undoneLine);
+          dispatchDrawingChanged();
+        }
+      }
+    });
+
+    // Redo Button
+    const redoButton = document.createElement("button");
+    redoButton.textContent = "Redo";
+    redoButton.style.padding = "10px 20px";
+    redoButton.style.fontSize = "16px";
+    redoButton.style.cursor = "pointer";
+
+    redoButton.addEventListener("click", () => {
+      if (redoStack.length > 0) {
+        const redoneLine = redoStack.pop();
+        if (redoneLine) {
+          lines.push(redoneLine);
+          dispatchDrawingChanged();
+        }
+      }
+    });
+
+    // Clear Button
     const clearButton = document.createElement("button");
     clearButton.textContent = "Clear Canvas";
-    clearButton.style.display = "block";
-    clearButton.style.margin = "10px auto";
     clearButton.style.padding = "10px 20px";
     clearButton.style.fontSize = "16px";
     clearButton.style.cursor = "pointer";
 
     clearButton.addEventListener("click", () => {
-      console.log("Clear Button Clicked!");
       lines = [];
+      redoStack = []; // Also clear the redo stack
       dispatchDrawingChanged();
     });
 
-    body.appendChild(clearButton);
+    // Adds all buttons to the single container
+    buttonContainer.appendChild(undoButton);
+    buttonContainer.appendChild(redoButton);
+    buttonContainer.appendChild(clearButton);
+
+    // Adds the container to the body
+    body.appendChild(buttonContainer);
   }
 });
