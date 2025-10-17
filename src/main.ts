@@ -33,43 +33,95 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // State variables
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
+    type Point = { x: number; y: number };
+    type Line = Point[];
+    // This array will store all the lines the user draws.
+    let lines: Line[] = [];
 
-    // Drawing Function
-    const draw = (e: MouseEvent) => {
+    // State variable
+    let isDrawing = false;
+
+    const dispatchDrawingChanged = () => {
+      console.log("Dispatching 'drawing-changed' event.");
+      const event = new CustomEvent("drawing-changed");
+      canvas.dispatchEvent(event);
+    };
+
+    // When the mouse is pressed down, start a new line in our data array.
+    canvas.addEventListener("mousedown", (e: MouseEvent) => {
+      isDrawing = true;
+      // Create a new line array for the new stroke
+      const newLine: Line = [{ x: e.offsetX, y: e.offsetY }];
+      lines.push(newLine);
+      console.log("Mouse Down: Started a new line. Total lines:", lines.length);
+      dispatchDrawingChanged();
+    });
+
+    // When the mouse is moved, add a new point to the current line.
+    canvas.addEventListener("mousemove", (e: MouseEvent) => {
       if (!isDrawing) return;
 
-      ctx.strokeStyle = "#000000"; // Black color
+      // Finds the line we are currently drawing (the last one in the array)
+      const currentLine = lines[lines.length - 1];
+
+      if (currentLine) {
+        currentLine.push({ x: e.offsetX, y: e.offsetY });
+        dispatchDrawingChanged();
+      }
+    });
+
+    // When the mouse is released, stops drawing.
+    canvas.addEventListener("mouseup", () => {
+      if (isDrawing) {
+        console.log("Mouse Up: Finished drawing line.");
+        isDrawing = false;
+      }
+    });
+
+    // When the mouse leaves the canvas, stops drawing.
+    canvas.addEventListener("mouseout", () => {
+      if (isDrawing) {
+        console.log("Mouse out of bounds: Paused drawing line.");
+        isDrawing = false;
+      }
+    });
+
+    // Observer that redraws the canvas when the data changes
+    canvas.addEventListener("drawing-changed", () => {
+      console.log(
+        `Event received: Redrawing canvas with ${lines.length} line(s).`,
+      );
+      console.log("Current data:", JSON.parse(JSON.stringify(lines)));
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "#000000";
       ctx.lineWidth = 5;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
-      // Draws the line
-      ctx.beginPath();
-      ctx.moveTo(lastX, lastY);
-      ctx.lineTo(e.offsetX, e.offsetY);
-      ctx.stroke();
+      // Redraws everything from the 'lines' data array
+      for (const line of lines) {
+        const startPoint = line[0];
 
-      [lastX, lastY] = [e.offsetX, e.offsetY];
-    };
+        if (!startPoint || line.length < 2) {
+          continue;
+        }
 
-    // When the mouse is pressed down
-    canvas.addEventListener("mousedown", (e: MouseEvent) => {
-      isDrawing = true;
-      [lastX, lastY] = [e.offsetX, e.offsetY];
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x, startPoint.y);
+
+        for (let i = 1; i < line.length; i++) {
+          const subsequentPoint = line[i];
+          if (subsequentPoint) {
+            ctx.lineTo(subsequentPoint.x, subsequentPoint.y);
+          }
+        }
+        ctx.stroke();
+      }
     });
 
-    // When the mouse is moved
-    canvas.addEventListener("mousemove", draw);
-    // When the mouse is released
-    canvas.addEventListener("mouseup", () => isDrawing = false);
-    // Stops drawing if the mouse leaves the canvas area
-    canvas.addEventListener("mouseout", () => isDrawing = false);
-
-    // Clear Button
+    // Changed the clear button which now clears data and dispatches an event
     const clearButton = document.createElement("button");
     clearButton.textContent = "Clear Canvas";
     clearButton.style.display = "block";
@@ -79,7 +131,9 @@ document.addEventListener("DOMContentLoaded", () => {
     clearButton.style.cursor = "pointer";
 
     clearButton.addEventListener("click", () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      console.log("Clear Button Clicked!");
+      lines = [];
+      dispatchDrawingChanged();
     });
 
     body.appendChild(clearButton);
