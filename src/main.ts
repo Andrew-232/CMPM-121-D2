@@ -34,11 +34,40 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     type Point = { x: number; y: number };
-    type Line = Point[];
-    // This array will store all the lines the user draws.
-    let lines: Line[] = [];
-    // A stack to store undone lines for the redo function
-    let redoStack: Line[] = [];
+
+    class Path {
+      private points: Point[];
+
+      constructor(startPoint: Point) {
+        this.points = [startPoint];
+      }
+
+      addPoint(point: Point) {
+        this.points.push(point);
+      }
+
+      draw(ctx: CanvasRenderingContext2D) {
+        const startPoint = this.points[0];
+
+        if (!startPoint || this.points.length < 2) {
+          return;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x, startPoint.y);
+
+        for (let i = 1; i < this.points.length; i++) {
+          const subsequentPoint = this.points[i];
+          if (subsequentPoint) {
+            ctx.lineTo(subsequentPoint.x, subsequentPoint.y);
+          }
+        }
+        ctx.stroke();
+      }
+    }
+
+    let lines: Path[] = [];
+    let redoStack: Path[] = [];
 
     // State variable
     let isDrawing = false;
@@ -53,8 +82,10 @@ document.addEventListener("DOMContentLoaded", () => {
       isDrawing = true;
       // Any new drawing action clears the redo history.
       redoStack = [];
-      const newLine: Line = [{ x: e.offsetX, y: e.offsetY }];
-      lines.push(newLine);
+
+      const newPath = new Path({ x: e.offsetX, y: e.offsetY });
+      lines.push(newPath);
+
       dispatchDrawingChanged();
     });
 
@@ -62,11 +93,10 @@ document.addEventListener("DOMContentLoaded", () => {
     canvas.addEventListener("mousemove", (e: MouseEvent) => {
       if (!isDrawing) return;
 
-      // Finds the line we are currently drawing (the last one in the array)
-      const currentLine = lines[lines.length - 1];
+      const currentPath = lines[lines.length - 1];
 
-      if (currentLine) {
-        currentLine.push({ x: e.offsetX, y: e.offsetY });
+      if (currentPath) {
+        currentPath.addPoint({ x: e.offsetX, y: e.offsetY });
         dispatchDrawingChanged();
       }
     });
@@ -94,24 +124,8 @@ document.addEventListener("DOMContentLoaded", () => {
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
 
-      // Redraws everything from the 'lines' data array
-      for (const line of lines) {
-        const startPoint = line[0];
-
-        if (!startPoint || line.length < 2) {
-          continue;
-        }
-
-        ctx.beginPath();
-        ctx.moveTo(startPoint.x, startPoint.y);
-
-        for (let i = 1; i < line.length; i++) {
-          const subsequentPoint = line[i];
-          if (subsequentPoint) {
-            ctx.lineTo(subsequentPoint.x, subsequentPoint.y);
-          }
-        }
-        ctx.stroke();
+      for (const path of lines) {
+        path.draw(ctx);
       }
     });
 
@@ -131,9 +145,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     undoButton.addEventListener("click", () => {
       if (lines.length > 0) {
-        const undoneLine = lines.pop();
-        if (undoneLine) {
-          redoStack.push(undoneLine);
+        const undonePath = lines.pop();
+        if (undonePath) {
+          redoStack.push(undonePath);
           dispatchDrawingChanged();
         }
       }
@@ -148,9 +162,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     redoButton.addEventListener("click", () => {
       if (redoStack.length > 0) {
-        const redoneLine = redoStack.pop();
-        if (redoneLine) {
-          lines.push(redoneLine);
+        const redonePath = redoStack.pop();
+        if (redonePath) {
+          lines.push(redonePath);
           dispatchDrawingChanged();
         }
       }
