@@ -37,9 +37,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     class Path {
       private points: Point[];
+      private thickness: number;
 
-      constructor(startPoint: Point) {
+      constructor(startPoint: Point, thickness: number) {
         this.points = [startPoint];
+        this.thickness = thickness;
       }
 
       addPoint(point: Point) {
@@ -52,6 +54,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!startPoint || this.points.length < 2) {
           return;
         }
+
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = this.thickness;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
 
         ctx.beginPath();
         ctx.moveTo(startPoint.x, startPoint.y);
@@ -69,21 +76,28 @@ document.addEventListener("DOMContentLoaded", () => {
     let lines: Path[] = [];
     let redoStack: Path[] = [];
 
-    // State variable
+    // State variables
     let isDrawing = false;
+    let currentThickness: number = 2;
+    const thinValue = 2;
+    const thickValue = 8;
+    // -----------------------
 
     const dispatchDrawingChanged = () => {
       const event = new CustomEvent("drawing-changed");
       canvas.dispatchEvent(event);
     };
 
-    // When starting a new line, clear the redo stack
+    // When starting a new line pass the current thickness
     canvas.addEventListener("mousedown", (e: MouseEvent) => {
       isDrawing = true;
       // Any new drawing action clears the redo history.
       redoStack = [];
 
-      const newPath = new Path({ x: e.offsetX, y: e.offsetY });
+      const newPath = new Path(
+        { x: e.offsetX, y: e.offsetY },
+        currentThickness,
+      );
       lines.push(newPath);
 
       dispatchDrawingChanged();
@@ -119,11 +133,6 @@ document.addEventListener("DOMContentLoaded", () => {
     canvas.addEventListener("drawing-changed", () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      ctx.strokeStyle = "#000000";
-      ctx.lineWidth = 5;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-
       for (const path of lines) {
         path.draw(ctx);
       }
@@ -135,6 +144,33 @@ document.addEventListener("DOMContentLoaded", () => {
     buttonContainer.style.justifyContent = "center";
     buttonContainer.style.gap = "10px";
     buttonContainer.style.marginTop = "10px";
+    buttonContainer.style.flexWrap = "wrap";
+
+    const thinButton = document.createElement("button");
+    thinButton.textContent = "Thin";
+    thinButton.style.padding = "10px 20px";
+    thinButton.style.fontSize = "16px";
+    thinButton.style.cursor = "pointer";
+    thinButton.style.border = "2px solid #333";
+
+    const thickButton = document.createElement("button");
+    thickButton.textContent = "Thick";
+    thickButton.style.padding = "10px 20px";
+    thickButton.style.fontSize = "16px";
+    thickButton.style.cursor = "pointer";
+    thickButton.style.border = "2px solid transparent";
+
+    thinButton.addEventListener("click", () => {
+      currentThickness = thinValue;
+      thinButton.style.border = "2px solid #333";
+      thickButton.style.border = "2px solid transparent";
+    });
+
+    thickButton.addEventListener("click", () => {
+      currentThickness = thickValue;
+      thickButton.style.border = "2px solid #333";
+      thinButton.style.border = "2px solid transparent";
+    });
 
     // Undo Button
     const undoButton = document.createElement("button");
@@ -184,6 +220,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Adds all buttons to the single container
+    buttonContainer.appendChild(thinButton);
+    buttonContainer.appendChild(thickButton);
     buttonContainer.appendChild(undoButton);
     buttonContainer.appendChild(redoButton);
     buttonContainer.appendChild(clearButton);
