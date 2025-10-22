@@ -73,6 +73,33 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // Class for the tool preview
+    class ToolPreview {
+      private position: Point;
+      private thickness: number;
+
+      constructor(startPoint: Point, thickness: number) {
+        this.position = startPoint;
+        this.thickness = thickness;
+      }
+
+      updatePosition(point: Point) {
+        this.position = point;
+      }
+
+      updateThickness(newThickness: number) {
+        this.thickness = newThickness;
+      }
+
+      draw(ctx: CanvasRenderingContext2D) {
+        const radius = this.thickness / 2;
+        ctx.beginPath();
+        ctx.arc(this.position.x, this.position.y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+        ctx.fill();
+      }
+    }
+
     let lines: Path[] = [];
     let redoStack: Path[] = [];
 
@@ -81,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentThickness: number = 2;
     const thinValue = 2;
     const thickValue = 8;
-    // -----------------------
+    let currentToolPreview: ToolPreview | null = null;
 
     const dispatchDrawingChanged = () => {
       const event = new CustomEvent("drawing-changed");
@@ -94,6 +121,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Any new drawing action clears the redo history.
       redoStack = [];
 
+      currentToolPreview = null;
+
       const newPath = new Path(
         { x: e.offsetX, y: e.offsetY },
         currentThickness,
@@ -103,14 +132,22 @@ document.addEventListener("DOMContentLoaded", () => {
       dispatchDrawingChanged();
     });
 
-    // When the mouse is moved, add a new point to the current line.
+    // listener now handles both drawing and previewing
     canvas.addEventListener("mousemove", (e: MouseEvent) => {
-      if (!isDrawing) return;
+      const currentPoint = { x: e.offsetX, y: e.offsetY };
 
-      const currentPath = lines[lines.length - 1];
-
-      if (currentPath) {
-        currentPath.addPoint({ x: e.offsetX, y: e.offsetY });
+      if (isDrawing) {
+        const currentPath = lines[lines.length - 1];
+        if (currentPath) {
+          currentPath.addPoint(currentPoint);
+          dispatchDrawingChanged();
+        }
+      } else {
+        if (!currentToolPreview) {
+          currentToolPreview = new ToolPreview(currentPoint, currentThickness);
+        } else {
+          currentToolPreview.updatePosition(currentPoint);
+        }
         dispatchDrawingChanged();
       }
     });
@@ -127,6 +164,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isDrawing) {
         isDrawing = false;
       }
+
+      if (currentToolPreview) {
+        currentToolPreview = null;
+        dispatchDrawingChanged();
+      }
     });
 
     // Observer that redraws the canvas when the data changes
@@ -135,6 +177,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       for (const path of lines) {
         path.draw(ctx);
+      }
+
+      if (currentToolPreview) {
+        currentToolPreview.draw(ctx);
       }
     });
 
@@ -164,12 +210,22 @@ document.addEventListener("DOMContentLoaded", () => {
       currentThickness = thinValue;
       thinButton.style.border = "2px solid #333";
       thickButton.style.border = "2px solid transparent";
+
+      if (currentToolPreview) {
+        currentToolPreview.updateThickness(currentThickness);
+        dispatchDrawingChanged();
+      }
     });
 
     thickButton.addEventListener("click", () => {
       currentThickness = thickValue;
       thickButton.style.border = "2px solid #333";
       thinButton.style.border = "2px solid transparent";
+
+      if (currentToolPreview) {
+        currentToolPreview.updateThickness(currentThickness);
+        dispatchDrawingChanged();
+      }
     });
 
     // Undo Button
