@@ -35,7 +35,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     type Point = { x: number; y: number };
 
-    class Path {
+    interface Drawable {
+      draw(ctx: CanvasRenderingContext2D): void;
+    }
+
+    class Path implements Drawable {
       private points: Point[];
       private thickness: number;
 
@@ -73,37 +77,88 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Class for the tool preview
+    // Sticker class (the "command" for placing a sticker)
+    class Sticker implements Drawable {
+      private position: Point;
+      private sticker: string;
+      private fontSize: number = 32;
+
+      constructor(startPoint: Point, sticker: string) {
+        this.position = startPoint;
+        this.sticker = sticker;
+      }
+
+      // drag method
+      updatePosition(point: Point) {
+        this.position = point;
+      }
+
+      draw(ctx: CanvasRenderingContext2D) {
+        ctx.font = `${this.fontSize}px Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#000000";
+        ctx.fillText(this.sticker, this.position.x, this.position.y);
+      }
+    }
+
     class ToolPreview {
       private position: Point;
+      private tool: Tool;
       private thickness: number;
+      private sticker: string | null;
+      private stickerFontSize: number = 32;
 
-      constructor(startPoint: Point, thickness: number) {
+      constructor(
+        startPoint: Point,
+        tool: Tool,
+        options: { thickness: number; sticker: string | null },
+      ) {
         this.position = startPoint;
-        this.thickness = thickness;
+        this.tool = tool;
+        this.thickness = options.thickness;
+        this.sticker = options.sticker;
       }
 
       updatePosition(point: Point) {
         this.position = point;
       }
 
-      updateThickness(newThickness: number) {
-        this.thickness = newThickness;
+      updateTool(
+        tool: Tool,
+        options: { thickness: number; sticker: string | null },
+      ) {
+        this.tool = tool;
+        this.thickness = options.thickness;
+        this.sticker = options.sticker;
       }
 
       draw(ctx: CanvasRenderingContext2D) {
-        const radius = this.thickness / 2;
-        ctx.beginPath();
-        ctx.arc(this.position.x, this.position.y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
-        ctx.fill();
+        if (this.tool === "pen") {
+          const radius = this.thickness / 2;
+          ctx.beginPath();
+          ctx.arc(this.position.x, this.position.y, radius, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+          ctx.fill();
+        } else if (this.tool === "sticker" && this.sticker) {
+          ctx.font = `${this.stickerFontSize}px Arial`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.globalAlpha = 0.5;
+          ctx.fillText(this.sticker, this.position.x, this.position.y);
+          ctx.globalAlpha = 1.0;
+        }
       }
     }
 
-    let lines: Path[] = [];
-    let redoStack: Path[] = [];
-
     // State variables
+    let lines: Drawable[] = [];
+    let redoStack: Drawable[] = [];
+
+    type Tool = "pen" | "sticker";
+    let currentTool: Tool = "pen";
+    let currentSticker: string | null = null;
+
     let isDrawing = false;
     let currentThickness: number = 2;
     const thinValue = 2;
@@ -115,7 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
       canvas.dispatchEvent(event);
     };
 
-    // When starting a new line pass the current thickness
+    // mousedown listener now handles both tools
     canvas.addEventListener("mousedown", (e: MouseEvent) => {
       isDrawing = true;
       // Any new drawing action clears the redo history.
@@ -123,28 +178,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
       currentToolPreview = null;
 
-      const newPath = new Path(
-        { x: e.offsetX, y: e.offsetY },
-        currentThickness,
-      );
-      lines.push(newPath);
+      const startPoint = { x: e.offsetX, y: e.offsetY };
+
+      if (currentTool === "pen") {
+        const newPath = new Path(startPoint, currentThickness);
+        lines.push(newPath);
+      } else if (currentTool === "sticker" && currentSticker) {
+        const newSticker = new Sticker(startPoint, currentSticker);
+        lines.push(newSticker);
+      }
 
       dispatchDrawingChanged();
     });
 
-    // listener now handles both drawing and previewing
+    // mousemove listener handles drawing, dragging, and previewing
     canvas.addEventListener("mousemove", (e: MouseEvent) => {
       const currentPoint = { x: e.offsetX, y: e.offsetY };
 
       if (isDrawing) {
-        const currentPath = lines[lines.length - 1];
-        if (currentPath) {
-          currentPath.addPoint(currentPoint);
+        const currentDrawable = lines[lines.length - 1];
+
+        if (currentDrawable) {
+          if (currentDrawable instanceof Path) {
+            currentDrawable.addPoint(currentPoint);
+          } else if (currentDrawable instanceof Sticker) {
+            currentDrawable.updatePosition(currentPoint);
+          }
           dispatchDrawingChanged();
         }
       } else {
         if (!currentToolPreview) {
-          currentToolPreview = new ToolPreview(currentPoint, currentThickness);
+          currentToolPreview = new ToolPreview(
+            currentPoint,
+            currentTool,
+            { thickness: currentThickness, sticker: currentSticker },
+          );
         } else {
           currentToolPreview.updatePosition(currentPoint);
         }
@@ -175,8 +243,8 @@ document.addEventListener("DOMContentLoaded", () => {
     canvas.addEventListener("drawing-changed", () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      for (const path of lines) {
-        path.draw(ctx);
+      for (const drawable of lines) {
+        drawable.draw(ctx);
       }
 
       if (currentToolPreview) {
@@ -207,23 +275,31 @@ document.addEventListener("DOMContentLoaded", () => {
     thickButton.style.border = "2px solid transparent";
 
     thinButton.addEventListener("click", () => {
+      currentTool = "pen";
       currentThickness = thinValue;
       thinButton.style.border = "2px solid #333";
       thickButton.style.border = "2px solid transparent";
 
       if (currentToolPreview) {
-        currentToolPreview.updateThickness(currentThickness);
+        currentToolPreview.updateTool(
+          currentTool,
+          { thickness: currentThickness, sticker: null },
+        );
         dispatchDrawingChanged();
       }
     });
 
     thickButton.addEventListener("click", () => {
+      currentTool = "pen";
       currentThickness = thickValue;
       thickButton.style.border = "2px solid #333";
       thinButton.style.border = "2px solid transparent";
 
       if (currentToolPreview) {
-        currentToolPreview.updateThickness(currentThickness);
+        currentToolPreview.updateTool(
+          currentTool,
+          { thickness: currentThickness, sticker: null },
+        );
         dispatchDrawingChanged();
       }
     });
@@ -237,9 +313,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     undoButton.addEventListener("click", () => {
       if (lines.length > 0) {
-        const undonePath = lines.pop();
-        if (undonePath) {
-          redoStack.push(undonePath);
+        const undoneItem = lines.pop();
+        if (undoneItem) {
+          redoStack.push(undoneItem);
           dispatchDrawingChanged();
         }
       }
@@ -254,9 +330,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     redoButton.addEventListener("click", () => {
       if (redoStack.length > 0) {
-        const redonePath = redoStack.pop();
-        if (redonePath) {
-          lines.push(redonePath);
+        const redoneItem = redoStack.pop();
+        if (redoneItem) {
+          lines.push(redoneItem);
           dispatchDrawingChanged();
         }
       }
@@ -275,9 +351,39 @@ document.addEventListener("DOMContentLoaded", () => {
       dispatchDrawingChanged();
     });
 
-    // Adds all buttons to the single container
+    // Adds pen buttons to the single container
     buttonContainer.appendChild(thinButton);
     buttonContainer.appendChild(thickButton);
+
+    // Sticker buttons
+    const stickers = ["😍", "🚀", "🔥"];
+    stickers.forEach((stickerEmoji) => {
+      const button = document.createElement("button");
+      button.textContent = stickerEmoji;
+      button.style.padding = "10px 20px";
+      button.style.fontSize = "16px";
+      button.style.cursor = "pointer";
+      button.style.fontFamily = "Arial";
+
+      button.addEventListener("click", () => {
+        currentTool = "sticker";
+        currentSticker = stickerEmoji;
+
+        thinButton.style.border = "2px solid transparent";
+        thickButton.style.border = "2px solid transparent";
+
+        if (currentToolPreview) {
+          currentToolPreview.updateTool(
+            currentTool,
+            { thickness: currentThickness, sticker: currentSticker },
+          );
+          dispatchDrawingChanged();
+        }
+      });
+
+      buttonContainer.appendChild(button);
+    });
+
     buttonContainer.appendChild(undoButton);
     buttonContainer.appendChild(redoButton);
     buttonContainer.appendChild(clearButton);
