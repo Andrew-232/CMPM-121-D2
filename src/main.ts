@@ -352,6 +352,47 @@ document.addEventListener("DOMContentLoaded", () => {
       dispatchDrawingChanged();
     });
 
+    // High resolution export
+    const exportButton = document.createElement("button");
+    exportButton.textContent = "Export PNG";
+    exportButton.style.padding = "10px 20px";
+    exportButton.style.fontSize = "16px";
+    exportButton.style.cursor = "pointer";
+
+    exportButton.addEventListener("click", () => {
+      const exportCanvas = document.createElement("canvas");
+      const exportSize = 1024;
+      exportCanvas.width = exportSize;
+      exportCanvas.height = exportSize;
+
+      const exportCtx = exportCanvas.getContext("2d");
+
+      if (!exportCtx) {
+        console.error("Could not create export canvas context.");
+        return;
+      }
+
+      exportCtx.fillStyle = "#f0f0f0";
+      exportCtx.fillRect(0, 0, exportSize, exportSize);
+
+      const scaleFactor = exportSize / canvas.width;
+      exportCtx.scale(scaleFactor, scaleFactor);
+
+      // Redraws all drawings
+      for (const drawable of lines) {
+        drawable.draw(exportCtx);
+      }
+
+      // Triggers file download
+      const dataUrl = exportCanvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = "D2-SketchPad-Export.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+
     // Adds pen buttons to the single container
     buttonContainer.appendChild(thinButton);
     buttonContainer.appendChild(thickButton);
@@ -419,6 +460,7 @@ document.addEventListener("DOMContentLoaded", () => {
     buttonContainer.appendChild(undoButton);
     buttonContainer.appendChild(redoButton);
     buttonContainer.appendChild(clearButton);
+    buttonContainer.appendChild(exportButton);
 
     // Adds the container to the body
     body.appendChild(buttonContainer);
