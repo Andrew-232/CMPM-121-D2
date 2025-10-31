@@ -158,6 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
     type Tool = "pen" | "sticker";
     let currentTool: Tool = "pen";
     let currentSticker: string | null = null;
+    const stickers = ["😍", "🚀", "🔥"];
 
     let isDrawing = false;
     let currentThickness: number = 2;
@@ -356,8 +357,7 @@ document.addEventListener("DOMContentLoaded", () => {
     buttonContainer.appendChild(thickButton);
 
     // Sticker buttons
-    const stickers = ["😍", "🚀", "🔥"];
-    stickers.forEach((stickerEmoji) => {
+    const createStickerButton = (stickerEmoji: string): HTMLButtonElement => {
       const button = document.createElement("button");
       button.textContent = stickerEmoji;
       button.style.padding = "10px 20px";
@@ -381,8 +381,40 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       });
 
-      buttonContainer.appendChild(button);
+      return button;
+    };
+
+    // Creates and adds the initial sticker buttons from the data model
+    stickers.forEach((stickerEmoji) => {
+      const stickerButton = createStickerButton(stickerEmoji);
+      buttonContainer.appendChild(stickerButton);
     });
+
+    // Custom sticker button
+    const customStickerButton = document.createElement("button");
+    customStickerButton.textContent = "Custom +";
+    customStickerButton.style.padding = "10px 20px";
+    customStickerButton.style.fontSize = "16px";
+    customStickerButton.style.cursor = "pointer";
+
+    customStickerButton.addEventListener("click", () => {
+      const newSticker = prompt(
+        "Enter your custom sticker (e.g., an emoji):",
+        "✨", // Just as an example of what can be used. Can also use text as a sticker
+      );
+
+      if (newSticker && newSticker.trim() !== "") {
+        const trimmedSticker = newSticker.trim();
+
+        stickers.push(trimmedSticker);
+
+        const newStickerButton = createStickerButton(trimmedSticker);
+
+        buttonContainer.insertBefore(newStickerButton, customStickerButton);
+      }
+    });
+
+    buttonContainer.appendChild(customStickerButton);
 
     buttonContainer.appendChild(undoButton);
     buttonContainer.appendChild(redoButton);
