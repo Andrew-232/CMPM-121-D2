@@ -108,10 +108,16 @@ document.addEventListener("DOMContentLoaded", () => {
     class Path implements Drawable {
       private points: Point[];
       private thickness: number;
+      private color: string;
 
-      constructor(startPoint: Point, thickness: number) {
+      constructor(
+        startPoint: Point,
+        thickness: number,
+        color: string,
+      ) {
         this.points = [startPoint];
         this.thickness = thickness;
+        this.color = color;
       }
 
       addPoint(point: Point) {
@@ -125,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        ctx.strokeStyle = "#000000";
+        ctx.strokeStyle = this.color;
         ctx.lineWidth = this.thickness;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
@@ -160,11 +166,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       draw(ctx: CanvasRenderingContext2D) {
+        ctx.save();
         ctx.font = `${this.fontSize}px Arial`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = "#000000";
         ctx.fillText(this.sticker, this.position.x, this.position.y);
+        ctx.restore();
       }
     }
 
@@ -174,16 +182,22 @@ document.addEventListener("DOMContentLoaded", () => {
       private thickness: number;
       private sticker: string | null;
       private stickerFontSize: number = 28;
+      private color: string;
 
       constructor(
         startPoint: Point,
         tool: Tool,
-        options: { thickness: number; sticker: string | null },
+        options: {
+          thickness: number;
+          sticker: string | null;
+          color: string;
+        },
       ) {
         this.position = startPoint;
         this.tool = tool;
         this.thickness = options.thickness;
         this.sticker = options.sticker;
+        this.color = options.color;
       }
 
       updatePosition(point: Point) {
@@ -192,11 +206,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       updateTool(
         tool: Tool,
-        options: { thickness: number; sticker: string | null },
+        options: {
+          thickness: number;
+          sticker: string | null;
+          color: string;
+        },
       ) {
         this.tool = tool;
         this.thickness = options.thickness;
         this.sticker = options.sticker;
+        this.color = options.color;
       }
 
       draw(ctx: CanvasRenderingContext2D) {
@@ -204,15 +223,18 @@ document.addEventListener("DOMContentLoaded", () => {
           const radius = this.thickness / 2;
           ctx.beginPath();
           ctx.arc(this.position.x, this.position.y, radius, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = 0.5;
           ctx.fill();
+          ctx.globalAlpha = 1.0;
         } else if (this.tool === "sticker" && this.sticker) {
+          ctx.save();
           ctx.font = `${this.stickerFontSize}px Arial`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.globalAlpha = 0.5;
           ctx.fillText(this.sticker, this.position.x, this.position.y);
-          ctx.globalAlpha = 1.0;
+          ctx.restore();
         }
       }
     }
@@ -230,7 +252,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const thinValue = 3;
     const thickValue = 10;
     let currentThickness: number = thinValue;
+    let currentColor: string = "#000000";
     let currentToolPreview: ToolPreview | null = null;
+
+    const getRandomColor = (): string => {
+      const hue = Math.floor(Math.random() * 361);
+      return `hsl(${hue}, 100%, 50%)`;
+    };
 
     const dispatchDrawingChanged = () => {
       const event = new CustomEvent("drawing-changed");
@@ -248,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const startPoint = { x: e.offsetX, y: e.offsetY };
 
       if (currentTool === "pen") {
-        const newPath = new Path(startPoint, currentThickness);
+        const newPath = new Path(startPoint, currentThickness, currentColor);
         lines.push(newPath);
       } else if (currentTool === "sticker" && currentSticker) {
         const newSticker = new Sticker(startPoint, currentSticker);
@@ -278,7 +306,11 @@ document.addEventListener("DOMContentLoaded", () => {
           currentToolPreview = new ToolPreview(
             currentPoint,
             currentTool,
-            { thickness: currentThickness, sticker: currentSticker },
+            {
+              thickness: currentThickness,
+              sticker: currentSticker,
+              color: currentColor,
+            },
           );
         } else {
           currentToolPreview.updatePosition(currentPoint);
@@ -341,6 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
     thinButton.addEventListener("click", () => {
       currentTool = "pen";
       currentThickness = thinValue;
+      currentColor = getRandomColor();
 
       deselectAllTools();
       thinButton.classList.add("selected");
@@ -348,7 +381,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (currentToolPreview) {
         currentToolPreview.updateTool(
           currentTool,
-          { thickness: currentThickness, sticker: null },
+          {
+            thickness: currentThickness,
+            sticker: null,
+            color: currentColor,
+          },
         );
         dispatchDrawingChanged();
       }
@@ -357,6 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
     thickButton.addEventListener("click", () => {
       currentTool = "pen";
       currentThickness = thickValue;
+      currentColor = getRandomColor();
 
       deselectAllTools();
       thickButton.classList.add("selected");
@@ -364,7 +402,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (currentToolPreview) {
         currentToolPreview.updateTool(
           currentTool,
-          { thickness: currentThickness, sticker: null },
+          {
+            thickness: currentThickness,
+            sticker: null,
+            color: currentColor,
+          },
         );
         dispatchDrawingChanged();
       }
@@ -470,7 +512,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (currentToolPreview) {
           currentToolPreview.updateTool(
             currentTool,
-            { thickness: currentThickness, sticker: currentSticker },
+            {
+              thickness: currentThickness,
+              sticker: currentSticker,
+              color: currentColor,
+            },
           );
           dispatchDrawingChanged();
         }
@@ -519,7 +565,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (currentToolPreview) {
           currentToolPreview.updateTool(
             currentTool,
-            { thickness: currentThickness, sticker: currentSticker },
+            {
+              thickness: currentThickness,
+              sticker: currentSticker,
+              color: currentColor,
+            },
           );
           dispatchDrawingChanged();
         }
