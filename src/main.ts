@@ -2,6 +2,72 @@ document.addEventListener("DOMContentLoaded", () => {
   const body = document.body;
 
   if (body) {
+    const styles = `
+      .button-container {
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+        max-width: 600px; /* Limit width for better wrapping */
+        margin-left: auto;
+        margin-right: auto;
+      }
+      
+      /* Base style for all buttons */
+      .tool-button, .control-button {
+        padding: 8px 16px;
+        font-size: 15px;
+        font-family: Arial, sans-serif;
+        font-weight: 600;
+        cursor: pointer;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        background-color: #ffffff;
+        color: #333;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+      }
+
+      /* Hover effect for all buttons */
+      .tool-button:hover, .control-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      }
+
+      /* Active/click effect for all buttons */
+      .tool-button:active, .control-button:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      
+      /* Style for tool buttons (pens, stickers) */
+      .tool-button {
+        min-width: 50px; /* Give emoji buttons a nice width */
+      }
+
+      /* Style for the "selected" tool */
+      .tool-button.selected {
+        border-color: #3498db;
+        box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+        color: #3498db;
+      }
+
+      /* Style for control buttons (Undo, Export, etc.) */
+      .control-button {
+        background-color: #f4f4f4;
+        color: #555;
+      }
+      
+      .control-button:hover {
+         background-color: #e9e9e9;
+      }
+    `;
+    const styleSheet = document.createElement("style");
+    styleSheet.type = "text/css";
+    styleSheet.innerText = styles;
+    document.head.appendChild(styleSheet);
+
     // This is the title of the screen
     const appTitle = document.createElement("h1");
     appTitle.textContent = "D2 SketchPad";
@@ -18,11 +84,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     canvas.style.display = "block"; // this makes the margin auto work
     canvas.style.margin = "20px auto"; // this centers the canvas horizontally
-    canvas.style.border = "1px solid #333"; // this adds a border to make it visible
-    canvas.style.backgroundColor = "#f0f0f0"; // this gives it a light background color
+    canvas.style.border = "1px solid #ccc";
+    canvas.style.backgroundColor = "#f9f9f9";
 
     canvas.style.borderRadius = "12px"; // This creates the rounded corners.
-    canvas.style.boxShadow = "0 6px 12px rgba(0, 0, 0, 0.15)"; // This adds the shadow effect.
+    canvas.style.boxShadow = "0 6px 12px rgba(0, 0, 0, 0.10)";
 
     body.appendChild(canvas);
 
@@ -81,7 +147,7 @@ document.addEventListener("DOMContentLoaded", () => {
     class Sticker implements Drawable {
       private position: Point;
       private sticker: string;
-      private fontSize: number = 32;
+      private fontSize: number = 28;
 
       constructor(startPoint: Point, sticker: string) {
         this.position = startPoint;
@@ -107,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
       private tool: Tool;
       private thickness: number;
       private sticker: string | null;
-      private stickerFontSize: number = 32;
+      private stickerFontSize: number = 28;
 
       constructor(
         startPoint: Point,
@@ -158,12 +224,12 @@ document.addEventListener("DOMContentLoaded", () => {
     type Tool = "pen" | "sticker";
     let currentTool: Tool = "pen";
     let currentSticker: string | null = null;
-    const stickers = ["😍", "🚀", "🔥"];
+    const stickers = ["🎨", "✨", "💡", "💖", "🌟"];
 
     let isDrawing = false;
-    let currentThickness: number = 2;
-    const thinValue = 2;
-    const thickValue = 8;
+    const thinValue = 3;
+    const thickValue = 10;
+    let currentThickness: number = thinValue;
     let currentToolPreview: ToolPreview | null = null;
 
     const dispatchDrawingChanged = () => {
@@ -242,7 +308,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Observer that redraws the canvas when the data changes
     canvas.addEventListener("drawing-changed", () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#f9f9f9";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       for (const drawable of lines) {
         drawable.draw(ctx);
@@ -255,31 +322,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Creates a container to hold all the buttons together
     const buttonContainer = document.createElement("div");
-    buttonContainer.style.display = "flex";
-    buttonContainer.style.justifyContent = "center";
-    buttonContainer.style.gap = "10px";
-    buttonContainer.style.marginTop = "10px";
-    buttonContainer.style.flexWrap = "wrap";
+    buttonContainer.className = "button-container";
+
+    const deselectAllTools = () => {
+      document.querySelectorAll(".tool-button").forEach((button) => {
+        button.classList.remove("selected");
+      });
+    };
 
     const thinButton = document.createElement("button");
-    thinButton.textContent = "Thin";
-    thinButton.style.padding = "10px 20px";
-    thinButton.style.fontSize = "16px";
-    thinButton.style.cursor = "pointer";
-    thinButton.style.border = "2px solid #333";
+    thinButton.textContent = "Fine Tip";
+    thinButton.className = "tool-button selected";
 
     const thickButton = document.createElement("button");
-    thickButton.textContent = "Thick";
-    thickButton.style.padding = "10px 20px";
-    thickButton.style.fontSize = "16px";
-    thickButton.style.cursor = "pointer";
-    thickButton.style.border = "2px solid transparent";
+    thickButton.textContent = "Broad Tip";
+    thickButton.className = "tool-button";
 
     thinButton.addEventListener("click", () => {
       currentTool = "pen";
       currentThickness = thinValue;
-      thinButton.style.border = "2px solid #333";
-      thickButton.style.border = "2px solid transparent";
+
+      deselectAllTools();
+      thinButton.classList.add("selected");
 
       if (currentToolPreview) {
         currentToolPreview.updateTool(
@@ -293,8 +357,9 @@ document.addEventListener("DOMContentLoaded", () => {
     thickButton.addEventListener("click", () => {
       currentTool = "pen";
       currentThickness = thickValue;
-      thickButton.style.border = "2px solid #333";
-      thinButton.style.border = "2px solid transparent";
+
+      deselectAllTools();
+      thickButton.classList.add("selected");
 
       if (currentToolPreview) {
         currentToolPreview.updateTool(
@@ -308,9 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Undo Button
     const undoButton = document.createElement("button");
     undoButton.textContent = "Undo";
-    undoButton.style.padding = "10px 20px";
-    undoButton.style.fontSize = "16px";
-    undoButton.style.cursor = "pointer";
+    undoButton.className = "control-button";
 
     undoButton.addEventListener("click", () => {
       if (lines.length > 0) {
@@ -325,9 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Redo Button
     const redoButton = document.createElement("button");
     redoButton.textContent = "Redo";
-    redoButton.style.padding = "10px 20px";
-    redoButton.style.fontSize = "16px";
-    redoButton.style.cursor = "pointer";
+    redoButton.className = "control-button";
 
     redoButton.addEventListener("click", () => {
       if (redoStack.length > 0) {
@@ -341,10 +402,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Clear Button
     const clearButton = document.createElement("button");
-    clearButton.textContent = "Clear Canvas";
-    clearButton.style.padding = "10px 20px";
-    clearButton.style.fontSize = "16px";
-    clearButton.style.cursor = "pointer";
+    clearButton.textContent = "Clear";
+    clearButton.className = "control-button";
 
     clearButton.addEventListener("click", () => {
       lines = [];
@@ -355,9 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // High resolution export
     const exportButton = document.createElement("button");
     exportButton.textContent = "Export PNG";
-    exportButton.style.padding = "10px 20px";
-    exportButton.style.fontSize = "16px";
-    exportButton.style.cursor = "pointer";
+    exportButton.className = "control-button";
 
     exportButton.addEventListener("click", () => {
       const exportCanvas = document.createElement("canvas");
@@ -372,7 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      exportCtx.fillStyle = "#f0f0f0";
+      exportCtx.fillStyle = "#f9f9f9";
       exportCtx.fillRect(0, 0, exportSize, exportSize);
 
       const scaleFactor = exportSize / canvas.width;
@@ -401,17 +458,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const createStickerButton = (stickerEmoji: string): HTMLButtonElement => {
       const button = document.createElement("button");
       button.textContent = stickerEmoji;
-      button.style.padding = "10px 20px";
-      button.style.fontSize = "16px";
-      button.style.cursor = "pointer";
-      button.style.fontFamily = "Arial";
+      button.className = "tool-button";
 
       button.addEventListener("click", () => {
         currentTool = "sticker";
         currentSticker = stickerEmoji;
 
-        thinButton.style.border = "2px solid transparent";
-        thickButton.style.border = "2px solid transparent";
+        deselectAllTools();
+        button.classList.add("selected");
 
         if (currentToolPreview) {
           currentToolPreview.updateTool(
@@ -433,25 +487,42 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Custom sticker button
     const customStickerButton = document.createElement("button");
-    customStickerButton.textContent = "Custom +";
-    customStickerButton.style.padding = "10px 20px";
-    customStickerButton.style.fontSize = "16px";
-    customStickerButton.style.cursor = "pointer";
+    customStickerButton.textContent = "Add Stamp +";
+    customStickerButton.className = "tool-button";
 
     customStickerButton.addEventListener("click", () => {
       const newSticker = prompt(
         "Enter your custom sticker (e.g., an emoji):",
-        "✨", // Just as an example of what can be used. Can also use text as a sticker
+        "✅",
       );
 
       if (newSticker && newSticker.trim() !== "") {
         const trimmedSticker = newSticker.trim();
 
-        stickers.push(trimmedSticker);
+        if (!stickers.includes(trimmedSticker)) {
+          stickers.push(trimmedSticker);
+          const newStickerButton = createStickerButton(trimmedSticker);
+          buttonContainer.insertBefore(newStickerButton, customStickerButton);
+        }
 
-        const newStickerButton = createStickerButton(trimmedSticker);
+        currentTool = "sticker";
+        currentSticker = trimmedSticker;
+        deselectAllTools();
+        document.querySelectorAll<HTMLButtonElement>(".tool-button").forEach(
+          (btn) => {
+            if (btn.textContent === trimmedSticker) {
+              btn.classList.add("selected");
+            }
+          },
+        );
 
-        buttonContainer.insertBefore(newStickerButton, customStickerButton);
+        if (currentToolPreview) {
+          currentToolPreview.updateTool(
+            currentTool,
+            { thickness: currentThickness, sticker: currentSticker },
+          );
+          dispatchDrawingChanged();
+        }
       }
     });
 
@@ -464,5 +535,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Adds the container to the body
     body.appendChild(buttonContainer);
+
+    dispatchDrawingChanged();
   }
 });
